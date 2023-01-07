@@ -94,6 +94,19 @@ func HandleRPCError(err error) AppError {
 	return NewFatalError(err)
 }
 
+func ReturnRPCError(err AppError) error {
+	switch err.Code {
+	case http.StatusBadRequest:
+		return status.Errorf(codes.InvalidArgument, err.Message)
+	case http.StatusNotFound:
+		return status.Errorf(codes.NotFound, err.Message)
+	case http.StatusForbidden, http.StatusUnauthorized:
+		return status.Errorf(codes.PermissionDenied, err.Message)
+	}
+
+	return status.Errorf(codes.Internal, err.Message)
+}
+
 func HandleBindError(err error) AppError {
 	if v, ok := err.(validator.ValidationErrors); ok {
 		message := fmt.Sprintf("Validation failed on field { %s }, Condition: %s", v[0].Field(), v[0].ActualTag())
