@@ -33,7 +33,7 @@ type AppError struct {
 	Code          int       `json:"-"`
 	Type          ErrorType `json:"type"`
 	Message       string    `json:"message"`
-	Internal      string    `json:"internal"`
+	Internal      string    `json:"_"`
 	InternalError error     `json:"-"`
 }
 
@@ -86,9 +86,9 @@ func HandleRPCError(err error) AppError {
 		case codes.Unknown, codes.Internal:
 			return NewFatalError(New(sErr.Message()))
 		case codes.NotFound:
-			return NewNotFoundError(sErr.Message())
+			return NewNotFoundError(sErr.Message(), err)
 		case codes.InvalidArgument:
-			return NewValidationError(sErr.Message())
+			return NewValidationError(sErr.Message(), err)
 		}
 	}
 	return NewFatalError(err)
@@ -112,41 +112,49 @@ func HandleBindError(err error) AppError {
 		}
 	}
 	if Is(err, io.EOF) {
-		return NewValidationError("No request body")
+		return NewValidationError("No request body", err)
 	}
 
 	return NewFatalError(err)
 }
 
-func NewValidationError(msg string) AppError {
+func NewValidationError(msg string, err error) AppError {
 	return AppError{
-		Code:    http.StatusBadRequest,
-		Type:    ErrValidation,
-		Message: msg,
+		Code:          http.StatusBadRequest,
+		Type:          ErrValidation,
+		Message:       msg,
+		Internal:      err.Error(),
+		InternalError: err,
 	}
 }
 
-func NewNotFoundError(msg string) AppError {
+func NewNotFoundError(msg string, err error) AppError {
 	return AppError{
-		Code:    http.StatusNotFound,
-		Type:    ErrNotFound,
-		Message: msg,
+		Code:          http.StatusNotFound,
+		Type:          ErrNotFound,
+		Message:       msg,
+		Internal:      err.Error(),
+		InternalError: err,
 	}
 }
 
-func NewPermissionError(msg string) AppError {
+func NewPermissionError(msg string, err error) AppError {
 	return AppError{
-		Code:    http.StatusUnauthorized,
-		Type:    ErrPermission,
-		Message: msg,
+		Code:          http.StatusUnauthorized,
+		Type:          ErrPermission,
+		Message:       msg,
+		Internal:      err.Error(),
+		InternalError: err,
 	}
 }
 
-func NewInvalidTokenError() AppError {
+func NewInvalidTokenError(err error) AppError {
 	return AppError{
-		Code:    http.StatusUnauthorized,
-		Type:    ErrInvalidToken,
-		Message: "Invalid token",
+		Code:          http.StatusUnauthorized,
+		Type:          ErrInvalidToken,
+		Message:       "Invalid token",
+		Internal:      err.Error(),
+		InternalError: err,
 	}
 }
 
