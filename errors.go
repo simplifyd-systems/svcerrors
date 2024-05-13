@@ -131,6 +131,26 @@ func HandleBindError(err error) AppError {
 	return NewFatalError(err)
 }
 
+func NewAppError(msg string, err error, code int, errType ErrorType) AppError {
+	return AppError{
+		Code:          code,
+		Type:          errType,
+		Message:       msg,
+		Internal:      err.Error(),
+		InternalError: err,
+	}
+}
+
+func NewEntryExistsError(msg string, err error) AppError {
+	return AppError{
+		Code:          http.StatusBadRequest,
+		Type:          ErrEntryExists,
+		Message:       msg,
+		Internal:      err.Error(),
+		InternalError: err,
+	}
+}
+
 func NewValidationError(msg string, err error) AppError {
 	return AppError{
 		Code:          http.StatusBadRequest,
