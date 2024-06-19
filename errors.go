@@ -33,7 +33,7 @@ type AppError struct {
 	Code          int       `json:"-"`
 	Type          ErrorType `json:"type"`
 	Message       string    `json:"message"`
-	Internal      string    `json:"_"`
+	Internal      string    `json:"-"`
 	InternalError error     `json:"-"`
 }
 
