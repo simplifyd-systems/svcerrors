@@ -30,9 +30,11 @@ const (
 )
 
 type AppError struct {
-	Code          int       `json:"-"`
+	HTTPCode      int       `json:"-"`
 	Type          ErrorType `json:"type"`
+	Code          string    `json:"code,omitempty"`
 	Message       string    `json:"message"`
+	RequestID     string    `json:"request_id,omitempty"`
 	Internal      string    `json:"-"`
 	InternalError error     `json:"-"`
 }
@@ -41,9 +43,14 @@ func (a AppError) Error() string {
 	return fmt.Sprintf("%s: %s", a.Type, a.Message)
 }
 
+func (a AppError) WithRequestID(id string) AppError {
+	a.RequestID = id
+	return a
+}
+
 func (a AppError) Serialize(c *gin.Context) {
 	c.Error(a)
-	c.AbortWithStatusJSON(a.Code, a)
+	c.AbortWithStatusJSON(a.HTTPCode, a)
 }
 
 func Is(err, target error) bool {
@@ -61,7 +68,7 @@ func Errorf(format string, vars ...interface{}) error {
 func HandleMongoError(err error, ctx string) AppError {
 	if _, ok := err.(mongo.WriteException); ok {
 		return AppError{
-			Code:          http.StatusConflict,
+			HTTPCode:      http.StatusConflict,
 			Type:          ErrEntryExists,
 			Message:       fmt.Sprintf("%s already exists", ctx),
 			Internal:      err.Error(),
@@ -70,7 +77,7 @@ func HandleMongoError(err error, ctx string) AppError {
 	}
 	if Is(err, mongo.ErrNoDocuments) {
 		return AppError{
-			Code:          http.StatusNotFound,
+			HTTPCode:      http.StatusNotFound,
 			Type:          ErrNotFound,
 			Message:       fmt.Sprintf("%s does not exist", ctx),
 			Internal:      err.Error(),
@@ -95,7 +102,7 @@ func HandleRPCError(err error) AppError {
 }
 
 func ReturnRPCError(err AppError) error {
-	switch err.Code {
+	switch err.HTTPCode {
 	case http.StatusBadRequest:
 		return status.Errorf(codes.InvalidArgument, err.Message)
 	case http.StatusNotFound:
@@ -118,7 +125,7 @@ func HandleBindError(err error) AppError {
 		}
 
 		return AppError{
-			Code:     http.StatusBadRequest,
+			HTTPCode: http.StatusBadRequest,
 			Type:     ErrValidation,
 			Message:  message,
 			Internal: err.Error(),
@@ -133,7 +140,7 @@ func HandleBindError(err error) AppError {
 
 func NewAppError(msg string, err error, code int, errType ErrorType) AppError {
 	return AppError{
-		Code:          code,
+		HTTPCode:      code,
 		Type:          errType,
 		Message:       msg,
 		Internal:      err.Error(),
@@ -143,7 +150,7 @@ func NewAppError(msg string, err error, code int, errType ErrorType) AppError {
 
 func NewEntryExistsError(msg string, err error) AppError {
 	return AppError{
-		Code:          http.StatusBadRequest,
+		HTTPCode:      http.StatusBadRequest,
 		Type:          ErrEntryExists,
 		Message:       msg,
 		Internal:      err.Error(),
@@ -153,7 +160,7 @@ func NewEntryExistsError(msg string, err error) AppError {
 
 func NewValidationError(msg string, err error) AppError {
 	return AppError{
-		Code:          http.StatusBadRequest,
+		HTTPCode:      http.StatusBadRequest,
 		Type:          ErrValidation,
 		Message:       msg,
 		Internal:      err.Error(),
@@ -163,7 +170,7 @@ func NewValidationError(msg string, err error) AppError {
 
 func NewNotFoundError(msg string, err error) AppError {
 	return AppError{
-		Code:          http.StatusNotFound,
+		HTTPCode:      http.StatusNotFound,
 		Type:          ErrNotFound,
 		Message:       msg,
 		Internal:      err.Error(),
@@ -173,7 +180,7 @@ func NewNotFoundError(msg string, err error) AppError {
 
 func NewPermissionError(msg string, err error) AppError {
 	return AppError{
-		Code:          http.StatusUnauthorized,
+		HTTPCode:      http.StatusUnauthorized,
 		Type:          ErrPermission,
 		Message:       msg,
 		Internal:      err.Error(),
@@ -183,7 +190,7 @@ func NewPermissionError(msg string, err error) AppError {
 
 func NewInvalidTokenError(err error) AppError {
 	return AppError{
-		Code:          http.StatusUnauthorized,
+		HTTPCode:      http.StatusUnauthorized,
 		Type:          ErrInvalidToken,
 		Message:       "Invalid token",
 		Internal:      err.Error(),
@@ -193,10 +200,21 @@ func NewInvalidTokenError(err error) AppError {
 
 func NewFatalError(err error) AppError {
 	return AppError{
-		Code:     http.StatusInternalServerError,
+		HTTPCode: http.StatusInternalServerError,
 		Type:     ErrFatal,
 		Message:  "Oops! something happened on our end.",
 		Internal: err.Error(),
+	}
+}
+
+func NewServerError(msg, code string, internalErr error) AppError {
+	return AppError{
+		HTTPCode:      http.StatusInternalServerError,
+		Type:          ErrFatal,
+		Code:          code,
+		Message:       msg,
+		Internal:      internalErr.Error(),
+		InternalError: internalErr,
 	}
 }
 
